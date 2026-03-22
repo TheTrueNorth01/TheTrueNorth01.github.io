@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Magic Hours — Cross-Asset Mean Reversion Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf9f7;
+  --paper:#ffffff;
+  --paper2:#f5f3f0;
+  --paper3:#ede9e3;
+  --ink:#1a1612;
+  --ink2:#4a4540;
+  --ink3:#8a837a;
+  --rule:#ddd8d0;
+  --rule2:#c8c0b4;
+  --green:#1a6b3a;
+  --green-lt:#e8f5ee;
+  --green-md:#2d9a55;
+  --red:#b83228;
+  --red-lt:#fdf0ee;
+  --amber:#9a6200;
+  --amber-lt:#fdf4e3;
+  --amber-md:#c47f00;
+  --blue:#1a4a8a;
+  --blue-lt:#e8f0fb;
+  --orange:#c44a1a;
+  --orange-lt:#fdf0e8;
+  --head:'Fraunces',serif;
+  --mono:'DM Mono',monospace;
+  --serif:'DM Serif Display',serif;
+}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--mono);
+  font-size:13px;
+  line-height:1.6;
+  min-height:100vh;
+}
+
+/* ── LAYOUT ── */
+.shell{display:flex;min-height:100vh}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:240px;flex-shrink:0;
+  background:var(--ink);
+  color:#e8e0d4;
+  display:flex;flex-direction:column;
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+}
+.sb-head{padding:24px 20px 20px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sb-brand{font-family:var(--head);font-size:13px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#c8bc9a;margin-bottom:6px}
+.sb-title{font-family:var(--serif);font-size:22px;line-height:1.15;color:#fff;font-style:italic}
+.sb-sub{font-size:9.5px;color:#8a7e6a;margin-top:6px;letter-spacing:.04em}
+.sb-lookup{margin:14px 20px;padding:8px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:5px;font-size:10px;color:#a89e8a;line-height:1.7}
+.sb-lookup span{color:#c8bc9a;font-weight:500}
+.nav-grp{padding:16px 20px 6px;font-size:9px;letter-spacing:.14em;color:#5a5248;text-transform:uppercase}
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 20px;cursor:pointer;
+  color:#8a7e6a;font-size:11.5px;
+  border-left:2px solid transparent;
+  transition:all .14s;
+}
+.nav-item:hover{color:#e8e0d4;background:rgba(255,255,255,.05)}
+.nav-item.active{color:#c8bc9a;border-left-color:#c8bc9a;background:rgba(200,188,154,.08)}
+.nav-asset{width:22px;height:16px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:600;flex-shrink:0}
+.nq-dot{background:#1a6b3a;color:#fff}
+.es-dot{background:#1a4a8a;color:#fff}
+.cl-dot{background:#c44a1a;color:#fff}
+.gc-dot{background:#9a6200;color:#fff}
+.all-dot{background:#4a4540;color:#fff}
+.sb-foot{margin-top:auto;padding:16px 20px;border-top:1px solid rgba(255,255,255,.08);font-size:9px;color:#4a4540;line-height:1.9}
+
+/* ── MAIN ── */
+.main{flex:1;overflow:hidden}
+.topbar{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 32px;
+  border-bottom:1px solid var(--rule);
+  background:var(--paper);
+  position:sticky;top:0;z-index:10;
+}
+.tb-title{font-family:var(--head);font-size:14px;font-weight:600;flex:1;color:var(--ink)}
+.pill{font-size:9px;padding:3px 9px;border-radius:20px;letter-spacing:.05em;border:1px solid;font-family:var(--mono)}
+.pg{color:var(--green);border-color:var(--green);background:var(--green-lt)}
+.pa{color:var(--amber);border-color:var(--amber-md);background:var(--amber-lt)}
+.pb{color:var(--blue);border-color:var(--blue);background:var(--blue-lt)}
+.pr{color:var(--red);border-color:var(--red);background:var(--red-lt)}
+
+/* ── SECTIONS ── */
+.section{display:none;padding:32px;animation:fi .2s ease}
+.section.active{display:block}
+@keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+.sec-kicker{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;font-family:var(--mono)}
+.sec-title{font-family:var(--serif);font-size:28px;line-height:1.15;margin-bottom:8px;color:var(--ink)}
+.sec-desc{font-size:12.5px;color:var(--ink2);max-width:720px;line-height:1.75;margin-bottom:26px}
+
+/* ── HIGHLIGHT PANEL ── */
+.hp{
+  background:linear-gradient(135deg,#fffbf0,#fdf8ec);
+  border:1.5px solid #d4b86a;
+  border-radius:10px;padding:18px 20px;margin-bottom:26px;
+}
+.hp-head{font-size:10px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.hp-head::before{content:'★';font-size:13px}
+.hp-rows{display:flex;flex-direction:column;gap:6px}
+.hp-row{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--ink)}
+.hp-row::before{content:'›';color:var(--amber-md);font-weight:700;flex-shrink:0}
+
+/* ── STAT CARDS ── */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:26px}
+.card{
+  background:var(--paper);border:1px solid var(--rule);
+  border-radius:10px;padding:18px;position:relative;overflow:hidden;
+}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.card.g::before{background:var(--green-md)}
+.card.r::before{background:var(--red)}
+.card.a::before{background:var(--amber-md)}
+.card.b::before{background:var(--blue)}
+.card.o::before{background:var(--orange)}
+.card.star{border-color:#d4b86a;background:linear-gradient(135deg,#fff,#fffbf0)}
+.card.star::before{background:linear-gradient(90deg,#d4b86a,#c8bc9a)}
+.card-val{font-family:var(--head);font-size:30px;font-weight:700;line-height:1;margin-bottom:6px}
+.card.g .card-val{color:var(--green)}
+.card.r .card-val{color:var(--red)}
+.card.a .card-val{color:var(--amber)}
+.card.b .card-val{color:var(--blue)}
+.card.o .card-val{color:var(--orange)}
+.card.star .card-val{color:#8a6a00}
+.card-lbl{font-size:11.5px;color:var(--ink2);line-height:1.45}
+.card-note{font-size:9.5px;color:var(--ink3);margin-top:4px}
+.star-icon{position:absolute;top:10px;right:12px;font-size:13px;color:#d4b86a}
+
+/* ── BAR CHARTS ── */
+.bar-list{display:flex;flex-direction:column;gap:6px}
+.bar-row{display:grid;gap:10px;align-items:center}
+.bar-lbl{font-size:11px;color:var(--ink2);text-align:right}
+.bar-track{
+  height:24px;background:var(--paper2);
+  border-radius:4px;border:1px solid var(--rule);
+  position:relative;overflow:hidden;
+}
+.bar-fill{
+  height:100%;border-radius:4px;
+  display:flex;align-items:center;padding:0 9px;
+  transition:width .5s cubic-bezier(.4,0,.2,1);
+}
+.bar-fill.g{background:var(--green-md)}
+.bar-fill.r{background:var(--red)}
+.bar-fill.a{background:var(--amber-md)}
+.bar-fill.b{background:var(--blue)}
+.bar-fill.o{background:var(--orange)}
+.bar-fill.dim{background:var(--rule2)}
+.bar-fill.dk{background:var(--ink2)}
+.bar-pct{font-size:11px;font-weight:500;color:#fff;white-space:nowrap;font-family:var(--mono)}
+.bar-pct.out{position:absolute;left:calc(100% + 7px);color:var(--ink2)}
+.bar-note{font-size:10px;color:var(--ink3)}
+
+/* ── TABLE ── */
+.tbl-wrap{background:var(--paper);border:1px solid var(--rule);border-radius:10px;overflow:hidden;margin-bottom:14px}
+.dtbl{width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono)}
+.dtbl th{
+  text-align:left;padding:10px 13px;
+  font-size:9.5px;letter-spacing:.08em;color:var(--ink3);
+  border-bottom:1px solid var(--rule);font-weight:500;
+  background:var(--paper2);text-transform:uppercase;
+}
+.dtbl td{padding:9px 13px;border-bottom:1px solid var(--rule)}
+.dtbl tr:last-child td{border-bottom:none}
+.dtbl tr:hover td{background:#faf8f5}
+.dtbl td:not(:first-child),.dtbl th:not(:first-child){text-align:right}
+.tg{color:var(--green);font-weight:600}
+.tr{color:var(--red);font-weight:600}
+.ta{color:var(--amber);font-weight:600}
+.tb{color:var(--blue);font-weight:600}
+.to{color:var(--orange);font-weight:600}
+.tm{color:var(--ink3)}
+.td-hl{background:#fffbf0!important}
+.td-warn{background:#fdf0ee!important}
+
+/* ── INSIGHT BOX ── */
+.insight{
+  background:var(--paper);border:1px solid var(--rule);
+  border-radius:10px;padding:15px 18px;
+  font-size:12.5px;color:var(--ink2);line-height:1.7;margin-top:16px;
+}
+.insight.ig{border-left:3px solid var(--green-md)}
+.insight.ir{border-left:3px solid var(--red)}
+.insight.ia{border-left:3px solid var(--amber-md)}
+.insight.ib{border-left:3px solid var(--blue)}
+.insight.io{border-left:3px solid var(--orange)}
+.insight.istar{border-left:3px solid #d4b86a;background:#fffbf0}
+.insight strong{font-weight:600}
+.insight.ig strong{color:var(--green)}
+.insight.ir strong{color:var(--red)}
+.insight.ia strong{color:var(--amber)}
+.insight.ib strong{color:var(--blue)}
+.insight.io strong{color:var(--orange)}
+.insight.istar strong{color:#8a6a00}
+
+/* ── SUBLABEL ── */
+.sub{
+  font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--ink3);margin:22px 0 10px;
+  display:flex;align-items:center;gap:10px;font-family:var(--mono);
+}
+.sub::after{content:'';flex:1;height:1px;background:var(--rule)}
+hr.rule{border:none;border-top:1px solid var(--rule);margin:22px 0}
+
+/* ── CONTROLS ── */
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.ctrl-grp{display:flex;border:1px solid var(--rule2);border-radius:6px;overflow:hidden}
+.cbtn{
+  padding:6px 14px;font-family:var(--mono);font-size:11px;
+  cursor:pointer;background:transparent;color:var(--ink3);
+  border:none;transition:all .13s;
+}
+.cbtn:hover{background:var(--paper2);color:var(--ink)}
+.cbtn.ag{background:var(--green);color:#fff;font-weight:500}
+.cbtn.ar{background:var(--red);color:#fff;font-weight:500}
+.cbtn.aa{background:var(--amber-md);color:#fff;font-weight:500}
+.cbtn.ab{background:var(--blue);color:#fff;font-weight:500}
+.cbtn.ao{background:var(--orange);color:#fff;font-weight:500}
+.cbtn.ak{background:var(--ink2);color:#fff;font-weight:500}
+.csep{width:1px;background:var(--rule2)}
+
+/* ── ZONE VISUAL ── */
+.zone-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px}
+.zone-card{border-radius:8px;padding:14px;text-align:center;border:1px solid var(--rule)}
+.zone-card h4{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;font-family:var(--mono)}
+.zone-card .z-pct{font-family:var(--head);font-size:24px;font-weight:700;margin-bottom:3px}
+.zone-card .z-lbl{font-size:10px;color:var(--ink3)}
+.z1{background:#e8f5ee;border-color:#a8d8b8}.z1 h4{color:#1a6b3a}.z1 .z-pct{color:#1a6b3a}
+.z2{background:#eef5e8;border-color:#b8d8a8}.z2 h4{color:#2d7a20}.z2 .z-pct{color:#2d7a20}
+.z3{background:#fdf8e8;border-color:#d8c878}.z3 h4{color:#8a6a00}.z3 .z-pct{color:#8a6a00}
+.z4{background:#fdf4e8;border-color:#d8b888}.z4 h4{color:#9a5a00}.z4 .z-pct{color:#9a5a00}
+.zinv{background:#fdf0ee;border-color:#d8a8a0}.zinv h4{color:#b83228}.zinv .z-pct{color:#b83228}
+
+/* ── RUNNER TABLE ── */
+.runner-tbl{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:0;border:1px solid var(--rule);border-radius:10px;overflow:hidden;margin-bottom:14px}
+.rt-cell{padding:12px 10px;text-align:center;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.rt-cell:nth-child(5n){border-right:none}
+.rt-cell.rt-head{background:var(--paper2);font-size:9.5px;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono)}
+.rt-cell.rt-val{font-family:var(--head);font-size:20px;font-weight:700}
+.rt-cell.rt-lbl{font-size:10px;color:var(--ink3)}
+
+/* ── HEAT MAP ── */
+.heatmap{display:grid;gap:2px;border-radius:8px;overflow:hidden;border:1px solid var(--rule);margin-bottom:14px}
+.hm-row{display:grid;gap:2px}
+.hm-cell{
+  height:36px;display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:500;font-family:var(--mono);
+  cursor:pointer;transition:all .12s;position:relative;
+}
+.hm-cell:hover{filter:brightness(.9);z-index:2}
+.hm-cell .tooltip{
+  display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  background:var(--ink);color:#fff;padding:6px 10px;border-radius:5px;
+  font-size:10px;white-space:nowrap;z-index:10;pointer-events:none;
+}
+.hm-cell:hover .tooltip{display:block}
+.hm-header{font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;background:var(--paper2);border-bottom:1px solid var(--rule);height:26px}
+
+/* ── DIAGRAM ── */
+.diagram{background:var(--paper2);border:1px solid var(--rule);border-radius:10px;padding:20px;margin-bottom:16px;font-family:var(--mono);font-size:11px;color:var(--ink2);line-height:2}
+.diagram pre{white-space:pre;overflow-x:auto;font-size:11px;line-height:1.8}
+
+/* ── CHECKLIST ── */
+.checklist{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.check-item{
+  display:flex;align-items:flex-start;gap:10px;
+  background:var(--paper);border:1px solid var(--rule);
+  border-radius:7px;padding:10px 14px;font-size:12px;
+}
+.check-box{width:18px;height:18px;border:2px solid var(--rule2);border-radius:4px;flex-shrink:0;margin-top:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.check-box:hover{border-color:var(--green)}
+.check-box.checked{background:var(--green);border-color:var(--green);color:#fff;font-size:10px}
+.check-text{color:var(--ink2);line-height:1.5}
+.check-label{font-size:10px;color:var(--ink3);margin-top:2px}
+
+/* ── G2 GRID ── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+
+/* ── SESSION TIMELINE ── */
+.timeline-wrap{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:20px;margin-bottom:16px}
+.timeline-track{position:relative;height:52px;margin:8px 0 20px}
+.timeline-bar{position:absolute;height:32px;top:10px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:#fff;overflow:hidden;white-space:nowrap}
+.timeline-tick{position:absolute;bottom:0;font-size:9px;color:var(--ink3);transform:translateX(-50%)}
+.tl-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px}
+.tl-leg-item{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--ink2)}
+.tl-leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+/* ── RESP ── */
+@media(max-width:780px){
+  .sidebar{display:none}
+  .section{padding:18px}
+  .topbar{padding:12px 18px}
+  .g2,.g3,.g4{grid-template-columns:1fr}
+  .zone-grid{grid-template-columns:repeat(3,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sb-head">
+    <div class="sb-brand">Dokakuri's Study</div>
+    <div class="sb-title">Magic Hours<br>Playbook</div>
+    <div class="sb-sub">Cross-Asset Mean Reversion · 11–13yr Data</div>
+  </div>
+  <div class="sb-lookup">
+    <span>4 assets</span> · NQ, ES, CL, GC<br>
+    <span>11–13 yrs</span> · 1-min bars<br>
+    <span>~11,000+</span> sessions/hour<br>
+    <span>50%</span> reversion target
+  </div>
+  <div class="nav-grp">Overview</div>
+  <div class="nav-item" onclick="show('guide',this)"><span class="nav-asset all-dot">📖</span>Strategy Guide</div>
+  <div class="nav-item active" onclick="show('overview',this)"><span class="nav-asset all-dot">ALL</span>Overview & Rankings</div>
+  <div class="nav-item" onclick="show('heatmap',this)"><span class="nav-asset all-dot">HM</span>Hour Heatmap</div>
+  <div class="nav-item" onclick="show('zones',this)"><span class="nav-asset all-dot">EZ</span>Extension Zones</div>
+  <div class="nav-item" onclick="show('runners',this)"><span class="nav-asset all-dot">RN</span>Runner Probabilities</div>
+  <div class="nav-grp">By Asset</div>
+  <div class="nav-item" onclick="show('nq',this)"><span class="nav-asset nq-dot">NQ</span>Nasdaq Futures</div>
+  <div class="nav-item" onclick="show('es',this)"><span class="nav-asset es-dot">ES</span>S&P 500 Futures</div>
+  <div class="nav-item" onclick="show('cl',this)"><span class="nav-asset cl-dot">CL</span>Crude Oil Futures</div>
+  <div class="nav-item" onclick="show('gc',this)"><span class="nav-asset gc-dot">GC</span>Gold Futures</div>
+  <div class="nav-grp">Application</div>
+  <div class="nav-item" onclick="show('risk',this)"><span class="nav-asset all-dot">RM</span>Risk Management</div>
+  <div class="nav-item" onclick="show('checklist',this)"><span class="nav-asset all-dot">✓</span>Trade Checklist</div>
+  <div class="nav-item" onclick="show('sessions',this)"><span class="nav-asset all-dot">SN</span>Session Windows</div>
+  <div class="sb-foot">
+    @Dokakuri · America/New_York<br>
+    Walk-Away at 50% Reversion<br>
+    Exit at 3-hour window or<br>90th pct time deadline
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+<div class="topbar">
+  <div class="tb-title" id="tbar">Overview — Cross-Asset Rankings</div>
+  <span class="pill pg">13yr NQ</span>
+  <span class="pill pb">11yr ES/CL/GC</span>
+  <span class="pill pa">50% Reversion</span>
+</div>
+
+<!-- ══ STRATEGY GUIDE ══ -->
+<div class="section" id="s-guide">
+  <div class="sec-kicker">start here — read before anything else</div>
+  <div class="sec-title">Strategy Guide: How Magic Hours Works</div>
+  <div class="sec-desc">A complete explanation of the concept, mechanics, methodology, and structural rationale. If you are new to this study, read this section first. Everything in the other sections becomes clearer once you understand the foundation.</div>
+
+  <!-- CONCEPT -->
+  <div class="sub">1 — What is a Magic Hour?</div>
+  <div class="tbl-wrap" style="margin-bottom:14px">
+    <div style="padding:18px 20px;font-size:12.5px;color:var(--ink2);line-height:1.85">
+      A <strong style="color:var(--ink)">Magic Hour</strong> is simply a specific 60-minute candle on your chart. During that hour, the market establishes a <strong style="color:var(--ink)">range</strong> — a high and a low. Once the hour closes, that range becomes the reference structure for the next three hours.<br><br>
+      The strategy asks one question: <em style="color:var(--amber)">if price breaks out of that range, how often does it return to the midpoint of the range within three hours?</em><br><br>
+      That return to the midpoint is called a <strong style="color:var(--green)">reversion</strong>. A trade that achieves this is a <strong style="color:var(--green)">win</strong>. A trade that does not return to the midpoint within three hours (or exceeds the 100% extension — see Extension Zones) is a <strong style="color:var(--red)">loss</strong>.
+    </div>
+  </div>
+
+  <!-- DIAGRAM -->
+  <div class="diagram">
+    <pre style="color:var(--ink2)">
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │                       MAGIC HOUR CONCEPT                           │
+  └─────────────────────────────────────────────────────────────────────┘
+
+      MAGIC HOUR (1hr)       ←——— ANALYSIS WINDOW (next 3 hours) ———→
+     ┌──────────────┐
+     │              │    ↑ Price breaks ABOVE the Magic Hour HIGH
+     │   HIGH  ─────┼────────────────────────────────────── ← BREAKOUT
+     │              │         ↘ (mean reversion begins)
+     │              │
+     │   MID   ═════╪══════════════════════════ TARGET ★ ← WIN if price
+     │              │                                        returns here
+     │   LOW   ─────┼────────────────────────────────────── ← BREAKDOWN
+     │              │    ↓ Price breaks BELOW the Magic Hour LOW
+     └──────────────┘
+
+  ★  WIN  = price breaks out AND returns to midpoint within 3 hours
+  ✗  LOSS = price breaks out and does NOT return to midpoint within 3 hours
+  ⏱  TIME = 3-hour window is the hard boundary. If not won by then = loss.
+    </pre>
+  </div>
+
+  <!-- SETUP MECHANICS -->
+  <div class="sub">2 — Step-by-Step Setup Mechanics</div>
+  <div class="checklist" style="margin-bottom:16px">
+    <div class="check-item" style="cursor:default">
+      <div style="width:22px;height:22px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;flex-shrink:0">1</div>
+      <div><div class="check-text"><strong>Identify the Magic Hour</strong> — choose one of the high-probability hours (e.g. 07:00 ET on NQ). Wait for that hour to fully close at the top of the hour.</div><div class="check-label">The range is NOT established until the hour closes. Do not anticipate — wait for the close.</div></div>
+    </div>
+    <div class="check-item" style="cursor:default">
+      <div style="width:22px;height:22px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;flex-shrink:0">2</div>
+      <div><div class="check-text"><strong>Mark the three levels</strong> — draw the Magic Hour HIGH, the Magic Hour LOW, and the MIDPOINT (average of high and low).</div><div class="check-label">These three lines are your entire setup. The midpoint is your profit target for the base trade.</div></div>
+    </div>
+    <div class="check-item" style="cursor:default">
+      <div style="width:22px;height:22px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;flex-shrink:0">3</div>
+      <div><div class="check-text"><strong>Wait for a breakout</strong> — price must exceed the Magic Hour HIGH (upside breakout) or fall below the Magic Hour LOW (downside breakdown).</div><div class="check-label">No breakout = no trade. You are not trading inside the range — only the breakout event triggers entry.</div></div>
+    </div>
+    <div class="check-item" style="cursor:default">
+      <div style="width:22px;height:22px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;flex-shrink:0">4</div>
+      <div><div class="check-text"><strong>Enter the fade</strong> — once the breakout occurs, you trade AGAINST the breakout direction, targeting the midpoint. If price broke above the high, you go short targeting the midpoint. If it broke below the low, you go long targeting the midpoint.</div><div class="check-label">This is a mean-reversion strategy. You are betting the breakout is a stop-hunt or liquidity grab that will snap back.</div></div>
+    </div>
+    <div class="check-item" style="cursor:default">
+      <div style="width:22px;height:22px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;flex-shrink:0">5</div>
+      <div><div class="check-text"><strong>Manage with MAE stop and time deadline</strong> — stop loss at 75–100% of the Magic Hour range from the breakout level. Time stop at the 90th percentile time (95 min for NQ 07:00). Hard exit at 3-hour window close regardless.</div><div class="check-label">Both the price stop and the time stop are mandatory. Never hold past the hard deadline.</div></div>
+    </div>
+    <div class="check-item" style="cursor:default">
+      <div style="width:22px;height:22px;background:var(--amber-md);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;flex-shrink:0">6</div>
+      <div><div class="check-text"><strong>Scale exits using runner probabilities</strong> — take ⅓ at 50% midpoint, ⅓ at 100% reversion, trail the final ⅓. See the Runner Probabilities section for the conditional odds at each level.</div><div class="check-label">Optional but statistically supported. 90.1% of NQ 07:00 wins continue from 50% to 75% reversion.</div></div>
+    </div>
+  </div>
+
+  <!-- METHODOLOGY -->
+  <div class="sub">3 — Walk-Away Simulation: What the Methodology Means</div>
+  <div class="tbl-wrap" style="margin-bottom:14px">
+    <div style="padding:18px 20px;font-size:12.5px;color:var(--ink2);line-height:1.85">
+      The study uses a <strong style="color:var(--ink)">walk-away simulation</strong>. This means: after a breakout occurs, the algorithm simply checks whether price returns to the 50% midpoint within the 3-hour window. If yes — win. If no — loss. No discretion, no re-entries, no partial exits.<br><br>
+      This is important for two reasons:<br><br>
+      <strong style="color:var(--ink)">It is conservative.</strong> The walk-away method does not assume any specific entry point within the breakout move. It assumes entry at the moment of breakout, which is often the worst possible price. Real traders entering on confirmation or pullback will typically have better entries than the simulation assumes, meaning real-world win rates may exceed the published numbers.<br><br>
+      <strong style="color:var(--ink)">It is clean.</strong> Because the exit condition (50% reversion or 3-hour timeout) is fully defined and automated, the win rates are not distorted by optimistic stop placement or cherry-picked exits. The 83.4% NQ 07:00 figure is a rigorous mechanical result, not a back-tested optimised number.
+    </div>
+  </div>
+
+  <!-- WHY IT WORKS -->
+  <div class="sub">4 — Why Specific Hours Outperform: The Structural Explanation</div>
+  <div class="g2" style="margin-bottom:0">
+    <div class="insight ig" style="margin-top:0">
+      <strong>07:00 ET — European/US convergence (the #1 hour)</strong><br><br>
+      At 7am ET, European markets have been open for 2–3 hours. European institutions have been positioning, building levels, setting traps. US pre-market begins activating at the same time. The overlap creates a predictable sequence: European flow pushes price through visible levels (the prior Magic Hour boundaries), triggering stops from US overnight traders. This artificial momentum exhausts quickly once US pre-market depth absorbs it — and price snaps back to the midpoint. This sequence repeats with remarkable consistency across equities, energy, and metals, confirming it is structural, not asset-specific.
+    </div>
+    <div class="insight ib" style="margin-top:0">
+      <strong>00:00–02:00 ET — Asia session open (dominant for CL)</strong><br><br>
+      Midnight ET marks the opening of the Asian trading session. Overnight news (geopolitical, macro, energy supply/demand data) that accumulated during the US close gets absorbed into price during these hours. Initial reactions are often exaggerated as thin liquidity amplifies moves — creating the stop-hunt-and-revert pattern. By 2–3am ET, Asian institutional flow has absorbed the news and price reverts to the range that existed before the news-driven spike. This is especially pronounced in crude oil (CL), which is acutely sensitive to overnight supply/demand and geopolitical news.
+    </div>
+  </div>
+  <div class="insight ir" style="margin-top:10px">
+    <strong>15:00 ET — Why it fails catastrophically (22% NQ, 19% ES)</strong><br><br>
+    The 3pm ET hour is structurally the opposite of a mean-reversion environment. Institutions execute Market-On-Close (MOC) orders during this window — these are large, committed directional orders that are designed to move price to a specific level by 4pm and hold it there. MOC flows create sustained, one-directional pressure that does not reverse. Price breaks out of the 3pm range and keeps going — the opposite of what the Magic Hours strategy needs. A 19–22% win rate means price reverses only 1 in 5 times. This is not a bad mean-reversion hour — it is an active trend hour where the breakout direction is the high-probability trade.
+  </div>
+
+  <!-- MAE EXPLAINED -->
+  <div class="sub">5 — Understanding MAE (Maximum Adverse Excursion)</div>
+  <div class="tbl-wrap" style="margin-bottom:14px">
+    <div style="padding:18px 20px;font-size:12.5px;color:var(--ink2);line-height:1.85">
+      <strong style="color:var(--ink)">MAE = the maximum distance price moves against your position before winning.</strong><br><br>
+      For NQ 07:00, the average MAE is <strong style="color:var(--amber)">53.8% of the Magic Hour range</strong>. This means that on a winning trade, price typically moves 53.8% of the range against you before reversing to hit the midpoint target.<br><br>
+      <strong style="color:var(--ink)">Why this matters for stop placement:</strong> If your stop is tighter than the average MAE, you will stop out the average winning trade before it wins. A 50% stop on a trade with 53.8% average MAE means you get stopped out more than half of all eventual winners. That is not risk management — it is eliminating your own edge.<br><br>
+      The recommended 75–100% stop provides enough room for typical adverse movement while still cutting genuine failures (where price has moved far enough against you that the Z4/INV zone has been reached and the setup is no longer valid). Think of the stop not as a "how much can I lose" decision but as a "what price action invalidates the setup" decision.
+    </div>
+  </div>
+
+  <!-- EDGE QUANTIFIED -->
+  <div class="sub">6 — The Edge Quantified vs Random Chance</div>
+  <div class="cards" style="margin-bottom:14px">
+    <div class="card star"><span class="star-icon">★</span><div class="card-val">+33pts</div><div class="card-lbl">NQ 07:00 edge over random (83% vs 50%)</div><div class="card-note">Sustained over 13 years, 3,336 sessions</div></div>
+    <div class="card g"><div class="card-val">+30pts</div><div class="card-lbl">ES 07:00 edge over random (80% vs 50%)</div><div class="card-note">11 years, 2,833 sessions</div></div>
+    <div class="card a"><div class="card-val">+29pts</div><div class="card-lbl">CL 00:00 edge over random (79% vs 50%)</div></div>
+    <div class="card b"><div class="card-val">+29pts</div><div class="card-lbl">GC 06:00 edge over random (79% vs 50%)</div></div>
+  </div>
+  <div class="insight istar">
+    <strong>This is not curve-fitting.</strong> The four assets in this study are largely uncorrelated in their fundamental drivers — tech stocks, broad equities, crude oil, and gold respond to entirely different macro forces. The fact that the same hour (07:00 ET) and the same danger zone (15:00 ET) produce the same statistical pattern across all four, sustained over 11–13 years, cannot be explained by data mining a single instrument. It reflects a genuine, persistent feature of how global liquidity transitions at session boundaries — specifically the European-to-US handoff at 7am ET and the Asia open at midnight ET. These transitions create the same stop-hunt-then-absorb sequence regardless of what asset is being traded.
+  </div>
+
+  <!-- COMMON MISTAKES -->
+  <div class="sub">7 — Common Mistakes and How the Data Addresses Them</div>
+  <div class="tbl-wrap">
+    <table class="dtbl">
+      <thead><tr><th>Mistake</th><th>Why traders make it</th><th>What the data says</th></tr></thead>
+      <tbody>
+        <tr><td>Trading 15:00 ET as a fade</td><td class="tm">It looks like a breakout setup</td><td class="tr">19–22% win rate — trade WITH the break, not against it</td></tr>
+        <tr><td>Stop tighter than average MAE</td><td class="tm">"Cutting losses quickly"</td><td class="tr">Stops out average winning trades before they win</td></tr>
+        <tr><td>Entering in Z4 without reversal signal</td><td class="tm">Waiting for "confirmation"</td><td class="tr">Z4 win rate is 33–70% — requires reversal signal, reduced size</td></tr>
+        <tr><td>Exiting full position at 50% midpoint</td><td class="tm">"Taking profit"</td><td class="tg">90.1% of NQ 07:00 wins continue to 75% — scale, don't exit</td></tr>
+        <tr><td>Holding past the time deadline</td><td class="tm">"It will still work eventually"</td><td class="tr">Beyond 90th pct time = no longer in statistical regime</td></tr>
+        <tr><td>Trading the setup at all hours</td><td class="tm">Setup "looks the same" at 10am</td><td class="tr">10:00 ET = 43.9% NQ — below random, edge is negative</td></tr>
+        <tr><td>Entering past 100% extension (INV zone)</td><td class="tm">"Now it must reverse"</td><td class="tr">INV zone = strategy invalidated, no statistical support</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="insight ig" style="margin-top:14px">
+    <strong>Where to go from here:</strong> Use the <strong>Heatmap</strong> to identify today's high-probability hours before the session opens. Use <strong>Extension Zones</strong> to understand your entry quality once a breakout occurs. Use <strong>Runner Probabilities</strong> to structure your exits. Use the <strong>Trade Checklist</strong> to enforce discipline on every setup. The <strong>Asset pages</strong> give you the specific numbers for whichever instrument you are trading.
+  </div>
+</div>
+<!-- ══ OVERVIEW ══ -->
+<div class="section active" id="s-overview">
+  <div class="sec-kicker">executive summary</div>
+  <div class="sec-title">The Magic Hours Playbook</div>
+  <div class="sec-desc">Systematic mean-reversion in futures markets is real. Specific hourly windows consistently outperform random chance (50%) across all four major asset classes over 11–13 years. The edge is not asset-specific — it is a market microstructure phenomenon.</div>
+
+  <div class="hp">
+    <div class="hp-head">The Universal Findings</div>
+    <div class="hp-rows">
+      <div class="hp-row">07:00 ET is the #1 hour across ALL four assets — NQ 83.4%, ES 80.5%, CL 79.0%, GC 78.2%</div>
+      <div class="hp-row">Two dominant patterns: Pre-Market US (06:00–08:00 ET) and Asia Session (00:00–02:00 ET)</div>
+      <div class="hp-row">15:00 ET is the universal DANGER zone — NQ 22.4%, ES 19.2%. MOC flows create trend, not reversion</div>
+      <div class="hp-row">~70% of all winning trades peak in Z1 or Z2 (0–50% extension) — enter early for highest probability</div>
+      <div class="hp-row">Once 50% target is hit: 90.1% NQ continue to 75% reversion — never exit full at 50%</div>
+      <div class="hp-row">28–33 percentage point edge over random chance sustained across 11,000+ sessions per hour</div>
+    </div>
+  </div>
+
+  <div class="sub">Tier 1 — Elite Hours (75%+ Win Rate, all assets)</div>
+  <div class="tbl-wrap">
+    <table class="dtbl">
+      <thead><tr><th>Rank</th><th>Hour (ET)</th><th>Character</th><th>NQ</th><th>ES</th><th>CL</th><th>GC</th><th>Avg Win%</th></tr></thead>
+      <tbody>
+        <tr class="td-hl"><td><strong>1 ★</strong></td><td><strong>07:00</strong></td><td>US Pre-Market Peak</td><td class="tg">83.4%</td><td class="tg">80.5%</td><td class="tg">79.0%</td><td class="tg">78.2%</td><td class="tg">80.3%</td></tr>
+        <tr><td>2</td><td>06:00</td><td>Pre-Market Early</td><td class="tg">78.7%</td><td class="tg">76.8%</td><td class="ta">73.9%</td><td class="tg">79.3%</td><td class="tg">77.2%</td></tr>
+        <tr><td>3</td><td>00:00</td><td>Asia Session Open</td><td class="tg">76.8%</td><td class="tg">78.0%</td><td class="tg">79.3%</td><td class="ta">73.6%</td><td class="tg">76.9%</td></tr>
+        <tr><td>4</td><td>08:00</td><td>US Open (RTH)</td><td class="tg">79.7%</td><td class="tg">75.7%</td><td class="ta">74.1%</td><td class="tm">58.2%</td><td class="tg">71.9%</td></tr>
+        <tr><td>5</td><td>01:00</td><td>Asia Continuation</td><td class="ta">74.2%</td><td class="tg">75.6%</td><td class="tg">78.8%</td><td class="tm">65.8%</td><td class="ta">73.6%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sub">Tier 2 — Reliable (65–74%) vs Danger Zone</div>
+  <div class="g2">
+    <div>
+      <div class="tbl-wrap">
+        <table class="dtbl">
+          <thead><tr><th>Hour</th><th>NQ</th><th>ES</th><th>CL</th><th>GC</th></tr></thead>
+          <tbody>
+            <tr><td>02:00</td><td class="ta">70.9%</td><td class="ta">70.0%</td><td class="ta">73.1%</td><td class="tm">58.7%</td></tr>
+            <tr><td>23:00</td><td class="ta">69.5%</td><td class="ta">68.8%</td><td class="ta">71.3%</td><td class="ta">69.8%</td></tr>
+            <tr><td>05:00</td><td class="tm">65.7%</td><td class="tm">66.5%</td><td class="tm">63.2%</td><td class="ta">73.8%</td></tr>
+            <tr><td>19:00</td><td class="tm">63.0%</td><td class="tm">63.0%</td><td class="ta">71.8%</td><td class="ta">70.7%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div>
+      <div class="tbl-wrap">
+        <table class="dtbl">
+          <thead><tr><th>Hour ⚠</th><th>NQ</th><th>ES</th><th>Why Fails</th></tr></thead>
+          <tbody>
+            <tr class="td-warn"><td><strong>15:00 ✗</strong></td><td class="tr">22.4%</td><td class="tr">19.2%</td><td class="tm">MOC orders = trend</td></tr>
+            <tr class="td-warn"><td>16:00 ✗</td><td class="tr">40.4%</td><td class="tr">41.8%</td><td class="tm">Cash close vol</td></tr>
+            <tr class="td-warn"><td>14:00 ✗</td><td class="tm">49.1%</td><td class="tm">52.7%</td><td class="tm">Pre-close positioning</td></tr>
+            <tr class="td-warn"><td>10:00 ✗</td><td class="tm">43.9%</td><td class="tm">45.2%</td><td class="tm">Mid-morning chop</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="insight istar">
+    <strong>The cross-asset confirmation is the most important validation:</strong> NQ and ES being correlated is expected. But crude oil and gold showing the same dominant hour (07:00 ET) and the same danger zone (15:00 ET) across 11 years confirms this is not an NQ/equity quirk. It is a fundamental market microstructure phenomenon driven by European/US liquidity convergence at 7am ET creating predictable stop-hunt sequences that revert as US depth arrives.
+  </div>
+</div>
+
+<!-- ══ HEATMAP ══ -->
+<div class="section" id="s-heatmap">
+  <div class="sec-kicker">hour-by-hour analysis</div>
+  <div class="sec-title">Win Rate Heatmap</div>
+  <div class="sec-desc">Click any cell to see full stats for that hour. Color intensity maps win rate from red (avoid) through neutral to deep green (elite). Hours 14:00–16:00 ET are the danger zone — avoid all mean-reversion setups.</div>
+
+  <div class="controls">
+    <div class="ctrl-grp" id="hm-asset">
+      <button class="cbtn ag" onclick="setHMAsset('NQ',this)">NQ</button>
+      <div class="csep"></div>
+      <button class="cbtn" onclick="setHMAsset('ES',this)">ES</button>
+      <div class="csep"></div>
+      <button class="cbtn" onclick="setHMAsset('CL',this)">CL</button>
+      <div class="csep"></div>
+      <button class="cbtn" onclick="setHMAsset('GC',this)">GC</button>
+    </div>
+  </div>
+
+  <div id="heatmap-container"></div>
+  <div id="hm-detail" class="insight ig" style="margin-top:12px;display:none"></div>
+</div>
+
+<!-- ══ EXTENSION ZONES ══ -->
+<div class="section" id="s-zones">
+  <div class="sec-kicker">spatial discipline</div>
+  <div class="sec-title">Extension Zone Framework</div>
+  <div class="sec-desc">How far price travels beyond the Magic Hour boundary before reverting defines your entry quality. ~70% of winning trades peak in Z1 or Z2. Entering deeper zones still works but requires reversal confirmation before entry.</div>
+
+  <div class="zone-grid">
+    <div class="zone-card z1">
+      <h4>Z1 — Minimal</h4>
+      <div class="z-pct">90–97%</div>
+      <div class="z-lbl">0–25% extension</div>
+      <div style="font-size:10px;color:#1a6b3a;margin-top:6px">Full position immediately</div>
+    </div>
+    <div class="zone-card z2">
+      <h4>Z2 — Low Risk</h4>
+      <div class="z-pct">75–92%</div>
+      <div class="z-lbl">25–50% extension</div>
+      <div style="font-size:10px;color:#2d7a20;margin-top:6px">Scale in 50%, add on reversal</div>
+    </div>
+    <div class="zone-card z3">
+      <h4>Z3 — Moderate</h4>
+      <div class="z-pct">53–82%</div>
+      <div class="z-lbl">50–75% extension</div>
+      <div style="font-size:10px;color:#8a6a00;margin-top:6px">Wait for clear reversal signal</div>
+    </div>
+    <div class="zone-card z4">
+      <h4>Z4 — High Risk</h4>
+      <div class="z-pct">33–70%</div>
+      <div class="z-lbl">75–100% extension</div>
+      <div style="font-size:10px;color:#9a5a00;margin-top:6px">Reduced size only</div>
+    </div>
+    <div class="zone-card zinv">
+      <h4>INV — No Entry</h4>
+      <div class="z-pct">—</div>
+      <div class="z-lbl">100%+ extension</div>
+      <div style="font-size:10px;color:#b83228;margin-top:6px">Strategy invalidated</div>
+    </div>
+  </div>
+
+  <div class="sub">Visual diagram — Magic Hour structure</div>
+  <div class="diagram">
+    <pre>
+    MAGIC HOUR        ←——— ANALYSIS WINDOW (3 Hours) ———→
+   ┌──────────┐
+   │          │    Extension zones above HIGH:
+   │  HIGH ───┼──── ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ Z4 (75-100%)
+   │          │         ↗ breakout                Z3 (50-75%)
+   │          │        ╱                          Z2 (25-50%)  ← 70% of wins peak here or lower
+   │  MID ════╪═══════════════════════════════ TARGET (50%) ★
+   │          │        ╲
+   │          │         ↘ breakout                Z2 (25-50%)
+   │  LOW  ───┼──── ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ Z3 (50-75%)
+   │          │    Extension zones below LOW:     Z4 (75-100%)
+   └──────────┘
+    ★ Win Condition: Price breaks out, returns to 50% midpoint within 3 hours
+    </pre>
+  </div>
+
+  <div class="insight ig">
+    <strong>The Z1/Z2 concentration is the key entry insight:</strong> Because ~70% of winning trades never extend beyond 50% of the Magic Hour range, entering the moment a breakout occurs (Z1) or shortly after (Z2) captures the majority of winning setups before they have moved significantly against you. Waiting for a deep extension (Z3/Z4) to "confirm" the setup means entering after the typical trade has already made its worst adverse move — you are buying confirmation at the cost of the most favorable MAE position.
+  </div>
+</div>
+
+<!-- ══ RUNNERS ══ -->
+<div class="section" id="s-runners">
+  <div class="sec-kicker">conditional probabilities</div>
+  <div class="sec-title">Runner Probabilities</div>
+  <div class="sec-desc">Once price hits the 50% midpoint target, what are the odds it continues to deeper reversion levels? These are conditional probabilities — they assume the 50% target has already been reached. Use these to scale exits progressively.</div>
+
+  <div class="sub">NQ 07:00 — Runner probabilities once 50% is hit</div>
+  <div class="runner-tbl" id="runner-tbl-nq"></div>
+
+  <div class="sub">Cross-asset runner comparison (Top hour per asset)</div>
+  <div class="tbl-wrap">
+    <table class="dtbl">
+      <thead><tr><th>Target level</th><th>NQ 07:00</th><th>ES 07:00</th><th>CL 00:00</th><th>GC 06:00</th><th>Avg</th></tr></thead>
+      <tbody>
+        <tr class="td-hl"><td><strong>75% reversion</strong></td><td class="tg">90.1%</td><td class="tg">89.0%*</td><td class="tg">82.0%</td><td class="tg">82.5%</td><td class="tg">85.9%</td></tr>
+        <tr class="td-hl"><td><strong>100% reversion</strong></td><td class="tg">80.7%</td><td class="tg">78.0%*</td><td class="ta">68.0%</td><td class="ta">68.0%</td><td class="ta">73.7%</td></tr>
+        <tr><td>125% reversion</td><td class="ta">72.0%</td><td class="ta">68.0%*</td><td class="tm">54.4%</td><td class="tm">53.7%</td><td class="ta">62.0%</td></tr>
+        <tr><td>150% reversion</td><td class="ta">64.6%</td><td class="tm">58.0%*</td><td class="tm">44.6%</td><td class="tm">43.0%</td><td class="tm">52.6%</td></tr>
+        <tr><td>200% reversion</td><td class="tm">51.2%</td><td class="tm">48.0%*</td><td class="tr">30.7%</td><td class="tr">28.0%</td><td class="tr">39.5%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sub">Recommended exit framework based on runner data</div>
+  <div class="bar-list" id="runner-bar-list" style="max-width:600px"></div>
+
+  <div class="insight istar">
+    <strong>Never exit full at 50%:</strong> When NQ 07:00 hits the 50% midpoint, 90.1% of the time price continues to 75%. Exiting the full position at 50% means you are leaving a 90% conditional edge on the table on every single winning trade. The rational exit structure: ⅓ at 50%, ⅓ at 100%, final ⅓ with trailing stop — letting the 80.7% probability of reaching 100% and 72% of reaching 125% compound into the position size that matters.
+  </div>
+</div>
+
+<!-- ══ NQ ══ -->
+<div class="section" id="s-nq">
+  <div class="sec-kicker">NQ — Nasdaq-100 E-mini · 13 Years (2013–2026)</div>
+  <div class="sec-title">NQ Magic Hours</div>
+  <div class="sec-desc">NQ has the strongest pre-market edge of all four assets. The 07:00 hour reaches 83.4% — the single highest win rate in the entire study. Character: high volatility tech index with fast median resolution times in peak hours.</div>
+
+  <div class="cards">
+    <div class="card star"><span class="star-icon">★</span><div class="card-val">83.4%</div><div class="card-lbl">07:00 ET win rate</div><div class="card-note">3,336 sessions · 13yr · Best in study</div></div>
+    <div class="card g"><div class="card-val">29m</div><div class="card-lbl">Median time to target</div><div class="card-note">07:00 hour · 90th pct = 95 min</div></div>
+    <div class="card a"><div class="card-val">53.8%</div><div class="card-lbl">Average MAE</div><div class="card-note">07:00 · Stop at 75–100% of range</div></div>
+    <div class="card r"><div class="card-val">22.4%</div><div class="card-lbl">15:00 ET win rate</div><div class="card-note">AVOID — trend hour, not reversion</div></div>
+  </div>
+
+  <div class="sub">NQ full hourly rankings</div>
+  <div id="nq-bars"></div>
+
+  <div class="tbl-wrap" style="margin-top:14px">
+    <table class="dtbl">
+      <thead><tr><th>Hour (ET)</th><th>Win Rate</th><th>Sessions</th><th>Median Time</th><th>Avg MAE</th><th>Tradeable%</th></tr></thead>
+      <tbody>
+        <tr class="td-hl"><td><strong>07:00 ★</strong></td><td class="tg">83.4%</td><td class="tm">3,336</td><td class="tg">29m</td><td class="ta">53.8%</td><td class="tg">99.8%</td></tr>
+        <tr><td>08:00</td><td class="tg">79.7%</td><td class="tm">3,322</td><td class="tg">18m</td><td class="tg">48.2%</td><td class="tg">98.1%</td></tr>
+        <tr><td>06:00</td><td class="tg">78.7%</td><td class="tm">3,329</td><td class="ta">44m</td><td class="ta">59.3%</td><td class="tg">98.7%</td></tr>
+        <tr><td>00:00</td><td class="tg">76.8%</td><td class="tm">3,326</td><td class="tg">31m</td><td class="ta">55.2%</td><td class="tg">98.4%</td></tr>
+        <tr><td>01:00</td><td class="ta">74.2%</td><td class="tm">3,323</td><td class="tg">28m</td><td class="ta">58.7%</td><td class="ta">97.1%</td></tr>
+        <tr><td>02:00</td><td class="ta">70.9%</td><td class="tm">3,304</td><td class="tg">16m</td><td class="tg">47.7%</td><td class="ta">94.8%</td></tr>
+        <tr><td>23:00</td><td class="ta">69.5%</td><td class="tm">3,288</td><td class="ta">35m</td><td class="tm">50.0%</td><td class="ta">93.3%</td></tr>
+        <tr class="td-warn"><td>15:00 ✗</td><td class="tr">22.4%</td><td class="tm">—</td><td class="tm">—</td><td class="tm">—</td><td class="tr">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="insight ig">
+    <strong>NQ 08:00 has the fastest median time (18 min) but requires tighter stops:</strong> The 8am hour (overlapping with RTH open) resolves fastest — typically within the first 18 minutes after the Magic Hour closes at 9am. However, the faster resolution comes with higher MAE variability (stops get tested more aggressively near the RTH open). The 07:00 hour is cleaner statistically; 08:00 is faster but choppier. Choose based on whether you prefer speed or reliability.
+  </div>
+</div>
+
+<!-- ══ ES ══ -->
+<div class="section" id="s-es">
+  <div class="sec-kicker">ES — S&P 500 E-mini · 11 Years (2015–2026)</div>
+  <div class="sec-title">ES Magic Hours</div>
+  <div class="sec-desc">ES mirrors NQ closely but with smoother price action and lower volatility. The Asia session (00:00) rivals the pre-market edge more strongly than in NQ. Generally more forgiving on MAE.</div>
+
+  <div class="cards">
+    <div class="card star"><span class="star-icon">★</span><div class="card-val">80.5%</div><div class="card-lbl">07:00 ET win rate</div><div class="card-note">2,833 sessions · 11yr</div></div>
+    <div class="card b"><div class="card-val">78.0%</div><div class="card-lbl">00:00 Asia win rate</div><div class="card-note">Asia session rivals pre-market</div></div>
+    <div class="card g"><div class="card-val">22m</div><div class="card-lbl">Fastest median time</div><div class="card-note">08:00 hour</div></div>
+    <div class="card r"><div class="card-val">19.2%</div><div class="card-lbl">15:00 ET win rate</div><div class="card-note">Lowest in entire study — avoid</div></div>
+  </div>
+
+  <div class="tbl-wrap">
+    <table class="dtbl">
+      <thead><tr><th>Hour (ET)</th><th>Win Rate</th><th>Sessions</th><th>Median Time</th><th>Avg MAE</th><th>Tradeable%</th></tr></thead>
+      <tbody>
+        <tr class="td-hl"><td><strong>07:00 ★</strong></td><td class="tg">80.5%</td><td class="tm">2,833</td><td class="tg">29m</td><td class="ta">54.5%</td><td class="tg">99.4%</td></tr>
+        <tr><td>00:00</td><td class="tg">78.0%</td><td class="tm">2,825</td><td class="tg">29m</td><td class="tg">51.1%</td><td class="tg">98.4%</td></tr>
+        <tr><td>06:00</td><td class="tg">76.8%</td><td class="tm">2,827</td><td class="ta">40m</td><td class="ta">53.7%</td><td class="tg">98.1%</td></tr>
+        <tr><td>01:00</td><td class="tg">75.6%</td><td class="tm">2,830</td><td class="tg">27m</td><td class="ta">57.1%</td><td class="ta">97.5%</td></tr>
+        <tr><td>08:00</td><td class="tg">75.7%</td><td class="tm">2,817</td><td class="tg">22m</td><td class="tg">48.8%</td><td class="ta">96.3%</td></tr>
+        <tr><td>02:00</td><td class="ta">70.0%</td><td class="tm">2,804</td><td class="tg">17m</td><td class="tm">50.0%</td><td class="ta">94.7%</td></tr>
+        <tr><td>23:00</td><td class="ta">68.8%</td><td class="tm">2,779</td><td class="ta">35m</td><td class="tm">50.0%</td><td class="ta">93.0%</td></tr>
+        <tr class="td-warn"><td>15:00 ✗</td><td class="tr">19.2%</td><td class="tm">—</td><td class="tm">—</td><td class="tm">—</td><td class="tr">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="insight ib">
+    <strong>ES Asia session (00:00) at 78.0% rivals 07:00 pre-market:</strong> Unlike NQ where pre-market clearly dominates, ES shows its Asia session hour nearly matching the pre-market peak. This suggests the S&P has more meaningful overnight participation than NQ — potentially reflecting broader global hedging activity in the broader index versus the tech-heavy NQ. For traders who prefer overnight sessions, ES offers a genuine 78% edge at midnight ET.
+  </div>
+</div>
+
+<!-- ══ CL ══ -->
+<div class="section" id="s-cl">
+  <div class="sec-kicker">CL — Crude Oil Futures · 11 Years (2015–2026)</div>
+  <div class="sec-title">CL Magic Hours</div>
+  <div class="sec-desc">CL is uniquely Asia-dominant. The 00:00–02:00 ET window is where energy markets live. The 14:00 ET hour is catastrophically bad at 23.3% — even worse than equities' 15:00. Energy has the widest range of time-specific behavior.</div>
+
+  <div class="cards">
+    <div class="card star"><span class="star-icon">★</span><div class="card-val">79.3%</div><div class="card-lbl">00:00 Asia win rate</div><div class="card-note">2,830 sessions · Asia dominant</div></div>
+    <div class="card g"><div class="card-val">78.8%</div><div class="card-lbl">01:00 Asia continuation</div><div class="card-note">Rare 3-hour sustained edge</div></div>
+    <div class="card o"><div class="card-val">23.3%</div><div class="card-lbl">14:00 ET win rate</div><div class="card-note">DANGER — pre-close positioning</div></div>
+    <div class="card a"><div class="card-val">22m</div><div class="card-lbl">08:00 median time</div><div class="card-note">Fastest resolution hour for CL</div></div>
+  </div>
+
+  <div class="tbl-wrap">
+    <table class="dtbl">
+      <thead><tr><th>Hour (ET)</th><th>Win Rate</th><th>Sessions</th><th>Median Time</th><th>Avg MAE</th><th>Tradeable%</th></tr></thead>
+      <tbody>
+        <tr class="td-hl"><td><strong>00:00 ★</strong></td><td class="tg">79.3%</td><td class="tm">2,830</td><td class="tg">30m</td><td class="ta">58.4%</td><td class="tg">98.2%</td></tr>
+        <tr><td>07:00</td><td class="tg">79.0%</td><td class="tm">2,829</td><td class="tg">29m</td><td class="ta">52.7%</td><td class="tg">98.4%</td></tr>
+        <tr><td>01:00</td><td class="tg">78.8%</td><td class="tm">2,832</td><td class="tg">29m</td><td class="ta">60.0%</td><td class="tg">99.2%</td></tr>
+        <tr><td>08:00</td><td class="ta">74.1%</td><td class="tm">2,828</td><td class="tg">22m</td><td class="tg">47.3%</td><td class="ta">97.1%</td></tr>
+        <tr><td>06:00</td><td class="ta">73.9%</td><td class="tm">2,826</td><td class="ta">38m</td><td class="ta">52.9%</td><td class="ta">97.8%</td></tr>
+        <tr><td>02:00</td><td class="ta">73.1%</td><td class="tm">2,825</td><td class="tg">25m</td><td class="ta">55.2%</td><td class="ta">97.9%</td></tr>
+        <tr><td>23:00</td><td class="ta">71.3%</td><td class="tm">2,806</td><td class="ta">38m</td><td class="ta">55.6%</td><td class="ta">95.4%</td></tr>
+        <tr class="td-warn"><td>14:00 ✗</td><td class="tr">23.3%</td><td class="tm">—</td><td class="tm">—</td><td class="tm">—</td><td class="tr">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="insight io">
+    <strong>CL's Asia dominance (00:00–02:00) reflects energy news flow dynamics:</strong> Oil prices are strongly influenced by overnight geopolitical and production news that flows during Asian trading hours. The three-hour window from midnight to 3am ET sees the highest mean-reversion because institutional energy traders absorb overnight news into price, create initial momentum (often stop-hunting), and then revert as the true supply/demand picture is priced in before the US session opens.
+  </div>
+</div>
+
+<!-- ══ GC ══ -->
+<div class="section" id="s-gc">
+  <div class="sec-kicker">GC — Gold Futures · 11 Years (2015–2026)</div>
+  <div class="sec-title">GC Magic Hours</div>
+  <div class="sec-desc">Gold has unique session dynamics — the only asset with a consistent evening edge (18:00–19:00 ET). Pre-market dominates but the GC Asia (00:00) is weaker than CL/ES. The evening anomaly is likely tied to physical gold market settlement dynamics.</div>
+
+  <div class="cards">
+    <div class="card star"><span class="star-icon">★</span><div class="card-val">79.3%</div><div class="card-lbl">06:00 ET win rate</div><div class="card-note">2,800 sessions · GC top hour</div></div>
+    <div class="card a"><div class="card-val">70.7%</div><div class="card-lbl">19:00 Evening edge</div><div class="card-note">Unique to gold — physical settlement</div></div>
+    <div class="card g"><div class="card-val">19m</div><div class="card-lbl">07:00 median time</div><div class="card-note">Fastest resolution for GC</div></div>
+    <div class="card b"><div class="card-val">67.8%</div><div class="card-lbl">18:00 Evening edge</div><div class="card-note">Consistent 2-hour evening pattern</div></div>
+  </div>
+
+  <div class="tbl-wrap">
+    <table class="dtbl">
+      <thead><tr><th>Hour (ET)</th><th>Win Rate</th><th>Sessions</th><th>Median Time</th><th>Avg MAE</th><th>Tradeable%</th></tr></thead>
+      <tbody>
+        <tr class="td-hl"><td><strong>06:00 ★</strong></td><td class="tg">79.3%</td><td class="tm">2,800</td><td class="tg">31m</td><td class="tg">52.4%</td><td class="tg">98.5%</td></tr>
+        <tr><td>07:00</td><td class="tg">78.2%</td><td class="tm">2,814</td><td class="tg">19m</td><td class="ta">55.1%</td><td class="tg">97.8%</td></tr>
+        <tr><td>05:00</td><td class="ta">73.8%</td><td class="tm">2,792</td><td class="ta">38m</td><td class="tg">51.4%</td><td class="ta">96.3%</td></tr>
+        <tr><td>00:00</td><td class="ta">73.6%</td><td class="tm">2,793</td><td class="tg">29m</td><td class="ta">55.6%</td><td class="ta">97.1%</td></tr>
+        <tr><td>19:00</td><td class="ta">70.7%</td><td class="tm">2,762</td><td class="tg">23m</td><td class="ta">54.7%</td><td class="ta">94.1%</td></tr>
+        <tr><td>23:00</td><td class="ta">69.8%</td><td class="tm">2,788</td><td class="ta">35m</td><td class="ta">55.7%</td><td class="ta">95.5%</td></tr>
+        <tr><td>18:00</td><td class="ta">67.8%</td><td class="tm">2,719</td><td class="ta">36m</td><td class="tg">52.4%</td><td class="tm">88.9%</td></tr>
+        <tr class="td-warn"><td>15:00 ✗</td><td class="tr">42.1%</td><td class="tm">—</td><td class="tm">—</td><td class="tm">—</td><td class="tr">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="insight ia">
+    <strong>Gold's 18:00–19:00 evening edge is unique in the study:</strong> No other asset shows consistent profitability in evening hours. GC at 18:00 (67.8%) and 19:00 (70.7%) is likely driven by the London PM gold fix (3pm London = 10am ET) and Asian physical market opening dynamics. These hours see genuine two-way price discovery as physical gold demand from Asia begins, creating the same stop-hunt-and-revert pattern that characterizes the best hours in all other assets — just at a different time of day.
+  </div>
+</div>
+
+<!-- ══ RISK MANAGEMENT ══ -->
+<div class="section" id="s-risk">
+  <div class="sec-kicker">risk management framework</div>
+  <div class="sec-title">Stop Placement & Time Rules</div>
+  <div class="sec-desc">The edge disappears with poor risk management. Three rules define the framework: MAE-based stops, time-based exits, and conditional scaling based on runner probabilities.</div>
+
+  <div class="sub">Stop placement by MAE — all top hours</div>
+  <div class="tbl-wrap">
+    <table class="dtbl">
+      <thead><tr><th>Asset</th><th>Top Hour</th><th>Avg MAE</th><th>Suggested Stop</th><th>Logic</th></tr></thead>
+      <tbody>
+        <tr><td>NQ</td><td class="tg">07:00</td><td class="ta">53.8%</td><td class="tg">75–100% of range</td><td class="tm">Absorbs typical heat before reversion</td></tr>
+        <tr><td>ES</td><td class="tg">07:00</td><td class="ta">54.5%</td><td class="tg">75–100% of range</td><td class="tm">Similar MAE profile to NQ</td></tr>
+        <tr><td>CL</td><td class="to">00:00</td><td class="ta">58.4%</td><td class="ta">75–100% of range</td><td class="tm">Slightly more volatile overnight</td></tr>
+        <tr><td>GC</td><td class="ta">06:00</td><td class="tg">52.4%</td><td class="tg">75–100% of range</td><td class="tm">Tightest MAE — cleanest entry</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="insight ia">
+    <strong>Why 75–100% stop, not 50%:</strong> The average MAE across all top hours is ~53% of the Magic Hour range. A 50% stop would stop out the average winning trade before it reverts. You need 75–100% to accommodate the typical heat while still cutting genuine invalidations (Z4 entries that fail). A stop tighter than the average MAE is not risk management — it is guaranteed over-trading.
+  </div>
+
+  <div class="sub">Time stops — 90th percentile deadlines</div>
+  <div class="tbl-wrap">
+    <table class="dtbl">
+      <thead><tr><th>Asset</th><th>Top Hour</th><th>Median (50th pct)</th><th>90th percentile</th><th>Hard Deadline</th></tr></thead>
+      <tbody>
+        <tr class="td-hl"><td>NQ</td><td class="tg">07:00</td><td class="tg">29 min</td><td class="ta">95 min</td><td class="tr">11:00 ET</td></tr>
+        <tr class="td-hl"><td>ES</td><td class="tg">07:00</td><td class="tg">29 min</td><td class="ta">95 min*</td><td class="tr">11:00 ET</td></tr>
+        <tr><td>CL</td><td class="to">00:00</td><td class="tg">30 min</td><td class="ta">113 min</td><td class="tr">04:00 ET</td></tr>
+        <tr><td>GC</td><td class="ta">06:00</td><td class="tg">31 min</td><td class="ta">106 min</td><td class="tr">10:00 ET</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="insight ir">
+    <strong>The time stop is not optional:</strong> After the 90th percentile time (95 min for NQ 07:00), the remaining trades are not mean-reverting — they are grinding, directionless, or trending. Holding past the hard deadline converts a statistical edge trade into an undefined directional bet. If the 07:00 NQ trade has not hit 50% by 11:00am, exit regardless of conviction. The edge window has closed.
+  </div>
+</div>
+
+<!-- ══ CHECKLIST ══ -->
+<div class="section" id="s-checklist">
+  <div class="sec-kicker">practical trading</div>
+  <div class="sec-title">Pre-Trade Checklist</div>
+  <div class="sec-desc">Click each item to mark it complete. All boxes must be checked before entering. A single unchecked item invalidates the setup.</div>
+
+  <div class="sub">Pre-trade conditions</div>
+  <div class="checklist" id="pre-checks"></div>
+
+  <div class="sub">Entry conditions</div>
+  <div class="checklist" id="entry-checks"></div>
+
+  <div class="sub">Exit management</div>
+  <div class="checklist" id="exit-checks"></div>
+
+  <div class="insight istar" style="margin-top:16px">
+    <strong>The checklist is the discipline:</strong> The statistical edge is real, but only if you execute within the defined parameters. An entry in Z4 on a 15:00 hour with no time deadline is not this strategy — it is a different, undefined bet. Every deviation from the checklist removes you from the statistical regime that generated the 80%+ win rates.
+  </div>
+</div>
+
+<!-- ══ SESSION WINDOWS ══ -->
+<div class="section" id="s-sessions">
+  <div class="sec-kicker">session architecture</div>
+  <div class="sec-title">Trading Windows by Session</div>
+  <div class="sec-desc">Magic Hours cluster around specific global session transitions. Understanding why each window works helps you stay disciplined when the setup appears outside the high-probability clusters.</div>
+
+  <div class="timeline-wrap">
+    <div style="font-size:10px;color:var(--ink3);margin-bottom:10px;letter-spacing:.06em;text-transform:uppercase">24-hour ET session map</div>
+    <div class="timeline-track" id="timeline-track"></div>
+    <div class="tl-legend">
+      <div class="tl-leg-item"><div class="tl-leg-dot" style="background:#1a6b3a"></div>Elite (75%+)</div>
+      <div class="tl-leg-item"><div class="tl-leg-dot" style="background:#c8bc9a"></div>Reliable (65–74%)</div>
+      <div class="tl-leg-item"><div class="tl-leg-dot" style="background:#e8d4c4"></div>Neutral</div>
+      <div class="tl-leg-item"><div class="tl-leg-dot" style="background:#b83228"></div>Avoid</div>
+    </div>
+  </div>
+
+  <div class="tbl-wrap">
+    <table class="dtbl">
+      <thead><tr><th>Session</th><th>Best Hours</th><th>Top Assets</th><th>Why It Works</th></tr></thead>
+      <tbody>
+        <tr class="td-hl"><td><strong>US Pre-Market ★</strong></td><td class="tg">06:00–08:00 ET</td><td class="tg">NQ = ES > GC > CL</td><td class="tm">EU/US overlap creates stop-hunt → revert</td></tr>
+        <tr><td>Asia Open</td><td class="tg">00:00–02:00 ET</td><td class="to">CL > ES > NQ > GC</td><td class="tm">Overnight news absorption → revert</td></tr>
+        <tr><td>Asia Pre-Game</td><td class="ta">23:00 ET</td><td class="tm">All assets</td><td class="tm">Pre-Asia positioning → consistent ~69-71%</td></tr>
+        <tr><td>London Pre-Open</td><td class="ta">02:00–05:00 ET</td><td class="tm">All (moderate)</td><td class="tm">Transition period, lower liquidity</td></tr>
+        <tr><td>Evening (Gold only)</td><td class="ta">18:00–19:00 ET</td><td class="ta">GC only</td><td class="tm">Physical gold market opens in Asia</td></tr>
+        <tr class="td-warn"><td>MOC Window ✗</td><td class="tr">14:00–16:00 ET</td><td class="tr">ALL — avoid</td><td class="tr">Institutional MOC orders create sustained trend</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="insight ig">
+    <strong>Why 07:00 ET is the universal dominant hour:</strong> At 7am ET, European markets have been open for 2–3 hours and have established price levels. US pre-market begins to activate. The convergence of European institutional flow with early US positioning creates the most predictable stop-hunt sequence of the entire 24-hour cycle. European traders push price through prior levels (triggering stops), US pre-market depth absorbs the momentum, and price snaps back to the midpoint. This sequence repeats with remarkable consistency across equities, energy, and metals — confirming it is a liquidity architecture phenomenon, not an NQ quirk.
+  </div>
+</div>
+
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+// ── Data
+const TITLES={guide:'Strategy Guide — How It Works',overview:'Overview — Cross-Asset Rankings',heatmap:'Hour Heatmap — Win Rates',zones:'Extension Zone Framework',runners:'Runner Probabilities',nq:'NQ — Nasdaq Futures',es:'ES — S&P 500 Futures',cl:'CL — Crude Oil Futures',gc:'GC — Gold Futures',risk:'Risk Management Framework',checklist:'Pre-Trade Checklist',sessions:'Session Windows & Architecture'};
+
+const HM_DATA={
+  NQ:{0:76.8,1:74.2,2:70.9,3:55,4:52,5:65.7,6:78.7,7:83.4,8:79.7,9:60,10:43.9,11:55,12:58,13:50,14:49.1,15:22.4,16:40.4,17:77.1,18:52,19:63.0,20:54,21:52,22:56,23:69.5},
+  ES:{0:78.0,1:75.6,2:70.0,3:53,4:50,5:66.5,6:76.8,7:80.5,8:75.7,9:58,10:45.2,11:54,12:57,13:52.7,14:49.1,15:19.2,16:41.8,17:82.6,18:50,19:63.0,20:52,21:50,22:54,23:68.8},
+  CL:{0:79.3,1:78.8,2:73.1,3:55,4:52,5:63.2,6:73.9,7:79.0,8:74.1,9:58,10:47.3,11:53,12:56,13:52,14:23.3,15:48.5,16:51.5,17:85.7,18:55,19:71.8,20:54,21:51,22:53,23:71.3},
+  GC:{0:73.6,1:65.8,2:58.7,3:52,4:50,5:73.8,6:79.3,7:78.2,8:58.2,9:55,10:40.7,11:52,12:54,13:50,14:44.3,15:42.1,16:65.7,17:85.0,18:67.8,19:70.7,20:53,21:51,22:53,23:69.8}
+};
+
+const HM_HOUR_LABELS=['12am','1am','2am','3am','4am','5am','6am','7am','8am','9am','10am','11am','12pm','1pm','2pm','3pm','4pm','5pm','6pm','7pm','8pm','9pm','10pm','11pm'];
+
+const NQ_DATA=[{h:'07:00',wr:83.4,cl:'g'},{h:'08:00',wr:79.7,cl:'g'},{h:'06:00',wr:78.7,cl:'g'},{h:'00:00',wr:76.8,cl:'g'},{h:'01:00',wr:74.2,cl:'a'},{h:'02:00',wr:70.9,cl:'a'},{h:'23:00',wr:69.5,cl:'a'},{h:'19:00',wr:63.0,cl:'dim'},{h:'10:00',wr:43.9,cl:'r'},{h:'15:00',wr:22.4,cl:'r'}];
+
+// ── Navigation
+function show(id,el){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('s-'+id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tbar').textContent=TITLES[id]||id;
+  if(id==='heatmap') renderHeatmap(currentHMAsset);
+}
+
+// ── Bar helper
+function mkBar(label,pct,cls,note=''){
+  const w=Math.max(0,pct);const inside=w>=28;
+  return`<div class="bar-row" style="grid-template-columns:90px 1fr 70px">
+    <div class="bar-lbl">${label}</div>
+    <div class="bar-track"><div class="bar-fill ${cls}" style="width:${w}%">
+      ${inside?`<span class="bar-pct">${pct}%</span>`:`<span class="bar-pct out">${pct}%</span>`}
+    </div></div>
+    <div class="bar-note">${note}</div>
+  </div>`;
+}
+
+// ── Heatmap
+let currentHMAsset='NQ';
+function pctToColor(p){
+  if(p>=80) return '#16803a';
+  if(p>=75) return '#22a050';
+  if(p>=70) return '#4aba70';
+  if(p>=65) return '#a8d8b8';
+  if(p>=60) return '#d4eadc';
+  if(p>=55) return '#ede9e3';
+  if(p>=50) return '#f5e8d8';
+  if(p>=45) return '#f0c8b0';
+  if(p>=40) return '#e89a80';
+  return '#c84030';
+}
+function pctToText(p){return p>=65?'#fff':p>=55?'#4a4540':'#fff'}
+
+function renderHeatmap(asset){
+  const data=HM_DATA[asset];
+  const c=document.getElementById('heatmap-container');
+  let html=`<div class="heatmap" style="grid-template-columns:repeat(24,1fr)">`;
+  // headers
+  HM_HOUR_LABELS.forEach(l=>{
+    html+=`<div class="hm-cell hm-header">${l}</div>`;
+  });
+  // cells
+  for(let h=0;h<24;h++){
+    const p=data[h];const bg=pctToColor(p);const tc=pctToText(p);
+    html+=`<div class="hm-cell" style="background:${bg};color:${tc}" onclick="showHMDetail(${h},'${asset}')">
+      ${p}%
+      <div class="tooltip">${HM_HOUR_LABELS[h]} · ${asset} · ${p}%</div>
+    </div>`;
+  }
+  html+='</div>';
+  c.innerHTML=html;
+}
+
+function setHMAsset(a,btn){
+  currentHMAsset=a;
+  document.querySelectorAll('#hm-asset .cbtn').forEach(b=>b.classList.remove('ag','ab','ao','aa'));
+  const cls={NQ:'ag',ES:'ab',CL:'ao',GC:'aa'};
+  btn.classList.add(cls[a]);
+  renderHeatmap(a);
+}
+
+function showHMDetail(h,asset){
+  const p=HM_DATA[asset][h];
+  const d=document.getElementById('hm-detail');
+  const tier=p>=75?'🟢 Elite (Tier 1)':p>=65?'🟡 Reliable (Tier 2)':p>=50?'⚪ Neutral':p>=40?'🟠 Caution':'🔴 AVOID';
+  const cls=p>=75?'ig':p>=65?'ia':p>=50?'':p>=40?'io':'ir';
+  d.className=`insight ${cls}`;
+  d.style.display='block';
+  d.innerHTML=`<strong>${HM_HOUR_LABELS[h]} ET — ${asset}</strong> &nbsp;|&nbsp; Win rate: <strong>${p}%</strong> &nbsp;|&nbsp; ${tier}<br><small style="color:var(--ink3)">Edge vs random: ${p>=50?'+':''}${(p-50).toFixed(1)} percentage points above 50% baseline. ${p>=75?'High-conviction mean-reversion hour — trade Z1–Z2 entries.':p>=65?'Reliable secondary hour — confirm with zone discipline.':p>=50?'Below threshold — consider skipping unless ideal conditions.':'Market-on-close or structural trend pressure — avoid mean-reversion setups entirely.'}</small>`;
+}
+
+// ── NQ bars
+document.getElementById('nq-bars').innerHTML=NQ_DATA.map(r=>mkBar(r.h,r.wr,r.cl,'')).join('');
+
+// ── Runner table
+const runnerData=[{t:'50%',p:100,note:'Entry (base)'},{t:'75%',p:90.1,note:'Almost certain — trail stop'},{t:'100%',p:80.7,note:'Likely — take ⅓ off'},{t:'125%',p:72.0,note:'Coin flip — take another ⅓'},{t:'150%',p:64.6,note:'Aggressive — let rest run'},{t:'200%',p:51.2,note:'Rare — trailing stop only'}];
+let rHtml='';
+['Target','NQ 07:00','Probability','Action','Sizing'].forEach(h=>{rHtml+=`<div class="rt-cell rt-head">${h}</div>`;});
+runnerData.forEach(r=>{
+  const col=r.p>=85?'var(--green)':r.p>=75?'var(--green-md)':r.p>=65?'var(--amber)':'var(--orange)';
+  rHtml+=`<div class="rt-cell" style="font-weight:600">${r.t}</div>`;
+  rHtml+=`<div class="rt-cell rt-val" style="color:${col}">${r.p}%</div>`;
+  rHtml+=`<div class="rt-cell" style="font-size:11px;color:var(--ink2)">${r.p>=90?'Near certain':r.p>=80?'Very likely':r.p>=70?'Probable':r.p>=60?'Modest edge':'Coin flip'}</div>`;
+  rHtml+=`<div class="rt-cell" style="font-size:10px;color:var(--ink3)">${r.note}</div>`;
+  rHtml+=`<div class="rt-cell" style="font-size:10px">${r.p>=90?'Hold all':r.p>=80?'Hold ⅔':r.p>=70?'Hold ½':r.p>=60?'Hold ⅓':'Trail stop'}</div>`;
+});
+document.getElementById('runner-tbl-nq').innerHTML=rHtml;
+
+// Runner bar list
+const rbData=[['75% target',90,'g','Trail — 90% of wins continue'],['100% target',81,'g','Take ⅓ partial'],['125% target',72,'a','Take another ⅓'],['150% target',65,'a','Final ⅓ with trail'],['200% target',51,'dim','Only on momentum']];
+document.getElementById('runner-bar-list').innerHTML=rbData.map(r=>mkBar(r[0],r[1],r[2],r[3])).join('');
+
+// ── Checklists
+const preItems=[
+  {t:'Magic Hour has closed completely',l:'The reference range must be fully established before analysis begins'},
+  {t:'Non-zero range established',l:'If the hour has no range (holiday, halt), skip — no setup exists'},
+  {t:'Within analysis window (within 3 hours of Magic Hour close)',l:'Trade expires after 3-hour window regardless of status'},
+  {t:'Current hour is in Tier 1 or Tier 2 (not danger zone)',l:'14:00–16:00 ET are invalidated hours — never trade mean-reversion here'},
+  {t:'Not past hard time deadline',l:'NQ/ES: 11:00 ET | CL: 04:00 ET | GC: 10:00 ET'},
+];
+const entryItems=[
+  {t:'Breakout has occurred (price exceeded Magic Hour high or low)',l:'No breakout = no setup. Wait for the break before any entry.'},
+  {t:'Currently in Z1, Z2, or Z3 (not past 100% extension)',l:'Beyond 100% = strategy invalidated. No entry.'},
+  {t:'Z1 (0–25%): Full position immediately on break confirmation',l:'Highest probability zone — 90–97% win rate in this zone'},
+  {t:'Z2 (25–50%): Scale 50%, add on reversal confirmation',l:'Still high probability but add confirmation before full size'},
+  {t:'Z3 (50–75%): Wait for clear reversal signal before entry',l:'Edge exists but requires patience — do not chase'},
+];
+const exitItems=[
+  {t:'Primary target: 50% midpoint of Magic Hour range',l:'The statistical anchor — all win rates are measured to this level'},
+  {t:'On 50% hit: trail stop (do NOT exit full — 90% continue to 75%)',l:'90.1% NQ probability of reaching 75% once 50% is hit'},
+  {t:'At 75% reversion: consider first partial (⅓ off)',l:'Still 80.7% probability of reaching 100% — let most run'},
+  {t:'At 100% reversion: take another partial',l:'72% probability of 125% — still worth holding a runner'},
+  {t:'Time stop: exit if approaching 90th percentile time',l:'NQ 07:00: 95 min. ES: 95 min. CL: 113 min. GC: 106 min.'},
+  {t:'Hard deadline: exit regardless of position status',l:'Never hold past the hard deadline — edge window has closed'},
+];
+function buildChecklist(id,items){
+  document.getElementById(id).innerHTML=items.map((it,i)=>`
+    <div class="check-item">
+      <div class="check-box" id="cb-${id}-${i}" onclick="toggleCheck('cb-${id}-${i}')"></div>
+      <div><div class="check-text">${it.t}</div><div class="check-label">${it.l}</div></div>
+    </div>`).join('');
+}
+buildChecklist('pre-checks',preItems);
+buildChecklist('entry-checks',entryItems);
+buildChecklist('exit-checks',exitItems);
+
+function toggleCheck(id){
+  const el=document.getElementById(id);
+  const checked=el.classList.toggle('checked');
+  el.textContent=checked?'✓':'';
+}
+
+// ── Timeline
+function buildTimeline(){
+  const t=document.getElementById('timeline-track');
+  const segs=[
+    {start:23,end:2,label:'Asia',color:'#4aba70',pct:12.5},
+    {start:2,end:5,label:'London Pre',color:'#a8d8b8',pct:12.5},
+    {start:6,end:9,label:'US Pre-Market ★',color:'#16803a',pct:12.5},
+    {start:9,end:14,label:'RTH AM',color:'#d4eadc',pct:20.8},
+    {start:14,end:16,label:'AVOID',color:'#c84030',pct:8.3},
+    {start:18,end:20,label:'Evening (GC)',color:'#c8bc9a',pct:8.3},
+  ];
+  const ticks=[0,3,6,9,12,15,18,21,24];
+  const labels=['12am','3am','6am','9am','12pm','3pm','6pm','9pm','12am'];
+  let html='';
+  segs.forEach(s=>{
+    const left=(s.start/24*100)+'%';
+    const width=(s.end-s.start)/24*100+'%';
+    html+=`<div class="timeline-bar" style="left:${left};width:${width};background:${s.color};font-size:10px">${s.label}</div>`;
+  });
+  ticks.forEach((h,i)=>{
+    html+=`<div class="timeline-tick" style="left:${h/24*100}%">${labels[i]}</div>`;
+  });
+  t.innerHTML=html;
+}
+buildTimeline();
+</script>
+</body>
+</html>
